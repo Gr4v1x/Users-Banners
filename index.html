@@ -158,15 +158,26 @@ function setStatus(msg, type, extra = "") {
 }
 
 async function urlToBase64(url) {
-  // نجلب الصورة عبر proxy مفتوح لتجنب CORS
-  const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-  const res = await fetch(proxy);
-  if (!res.ok) throw new Error("Failed to fetch image");
-  const buf = await res.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let bin = "";
-  for (let b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin);
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://proxy.cors.sh/${url}`,
+  ];
+
+  for (const proxy of proxies) {
+    try {
+      const res = await fetch(proxy);
+      if (!res.ok) continue;
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength === 0) continue;
+      const bytes = new Uint8Array(buf);
+      let bin = "";
+      for (let b of bytes) bin += String.fromCharCode(b);
+      return btoa(bin);
+    } catch (_) { continue; }
+  }
+
+  throw new Error("Failed to fetch image — تأكد أن الرابط صحيح أو جرب رابطاً آخر");
 }
 
 async function getFileSHA(path, token) {
