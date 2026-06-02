@@ -22,36 +22,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download image
+      - name: Install ImageMagick
+        run: sudo apt-get install -y imagemagick
+
+      - name: Download and convert image to PNG
         run: |
-          mkdir -p banners
-          # تحميل الصورة وتحديد الامتداد تلقائياً
+          # تحميل الصورة
           curl -L "${{ github.event.inputs.image_url }}" \
                -o /tmp/banner_raw \
-               --max-filesize 5242880  # حد 5MB
+               --max-filesize 5242880
 
-          # استخراج الامتداد من الرابط أو نوع الملف
-          EXT=$(curl -sI "${{ github.event.inputs.image_url }}" | \
-                grep -i content-type | \
-                sed 's/.*image\///' | tr -d '\r\n' | \
-                sed 's/jpeg/jpg/')
-          
-          # fallback للامتداد من الرابط
-          if [ -z "$EXT" ] || [ "$EXT" = "octet-stream" ]; then
-            EXT=$(echo "${{ github.event.inputs.image_url }}" | \
-                  sed 's/.*\.\([a-zA-Z0-9]*\).*/\1/' | tr '[:upper:]' '[:lower:]')
-          fi
+          # تحويلها إلى PNG ووضعها مباشرة في root المستودع
+          convert /tmp/banner_raw "${{ github.event.inputs.user_id }}.png"
 
-          # افتراضي png إذا فشل كل شيء
-          EXT=${EXT:-png}
-
-          cp /tmp/banner_raw "banners/${{ github.event.inputs.user_id }}.${EXT}"
-          echo "BANNER_FILE=banners/${{ github.event.inputs.user_id }}.${EXT}" >> $GITHUB_ENV
+          echo "✅ Saved as ${{ github.event.inputs.user_id }}.png"
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add banners/
-          git commit -m "Add banner for user ${{ github.event.inputs.user_id }}"
+          git add *.png
+          git commit -m "Add banner for user ${{ github.event.inputs.user_id }} (.png)"
           git push
