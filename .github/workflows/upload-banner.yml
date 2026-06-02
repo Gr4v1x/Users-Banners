@@ -4,29 +4,54 @@ on:
   workflow_dispatch:
     inputs:
       user_id:
-        description: 'Player ID'
+        description: "User ID (e.g. 12345)"
         required: true
-        default: '1482160526657196223'
-      image_url: 
-        description: 'Image URL (Copy image address)'
+        type: string
+      image_url:
+        description: "Image URL (Copy image address)"
         required: true
-        default: 'https://media.discordapp.net/attachments/1492498485751189564/1504593564800385205/Untitled-1.png?ex=6a1ff133&is=6a1e9fb3&hm=b16a07b34e750131e0e03afa6e24a1d80442fcfde1e058bfc92a5504e6308846&=&format=webp&quality=lossless&width=508&height=90'
+        type: string
+
 jobs:
   upload:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Download image
         run: |
           mkdir -p banners
-          curl -L "${{ github.event.inputs.image_url }}" -o "banners/${{ github.event.inputs.user_id }}.png"
+          # تحميل الصورة وتحديد الامتداد تلقائياً
+          curl -L "${{ github.event.inputs.image_url }}" \
+               -o /tmp/banner_raw \
+               --max-filesize 5242880  # حد 5MB
+
+          # استخراج الامتداد من الرابط أو نوع الملف
+          EXT=$(curl -sI "${{ github.event.inputs.image_url }}" | \
+                grep -i content-type | \
+                sed 's/.*image\///' | tr -d '\r\n' | \
+                sed 's/jpeg/jpg/')
+          
+          # fallback للامتداد من الرابط
+          if [ -z "$EXT" ] || [ "$EXT" = "octet-stream" ]; then
+            EXT=$(echo "${{ github.event.inputs.image_url }}" | \
+                  sed 's/.*\.\([a-zA-Z0-9]*\).*/\1/' | tr '[:upper:]' '[:lower:]')
+          fi
+
+          # افتراضي png إذا فشل كل شيء
+          EXT=${EXT:-png}
+
+          cp /tmp/banner_raw "banners/${{ github.event.inputs.user_id }}.${EXT}"
+          echo "BANNER_FILE=banners/${{ github.event.inputs.user_id }}.${EXT}" >> $GITHUB_ENV
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add banners/
-          git commit -m "Add banner for player ${{ github.event.inputs.user_id }}"
+          git commit -m "Add banner for user ${{ github.event.inputs.user_id }}"
           git push
