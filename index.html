@@ -23,22 +23,9 @@
     width: 100%;
     max-width: 480px;
   }
-  h1 {
-    font-size: 1.4rem;
-    margin-bottom: 6px;
-    color: #58a6ff;
-  }
-  p.sub {
-    font-size: .85rem;
-    color: #8b949e;
-    margin-bottom: 28px;
-  }
-  label {
-    display: block;
-    font-size: .82rem;
-    color: #8b949e;
-    margin-bottom: 6px;
-  }
+  h1 { font-size: 1.4rem; margin-bottom: 6px; color: #58a6ff; }
+  p.sub { font-size: .85rem; color: #8b949e; margin-bottom: 28px; }
+  label { display: block; font-size: .82rem; color: #8b949e; margin-bottom: 6px; }
   input {
     width: 100%;
     background: #0d1117;
@@ -66,47 +53,26 @@
   }
   button:hover:not(:disabled) { background: #2ea043; }
   button:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
-
-  #preview {
-    display: none;
-    margin-top: 20px;
-    text-align: center;
-  }
-  #preview img {
-    max-width: 100%;
-    max-height: 180px;
-    border-radius: 8px;
-    border: 1px solid #30363d;
-  }
-  #preview p {
-    font-size: .8rem;
-    color: #8b949e;
-    margin-top: 6px;
-  }
-
+  #preview { display: none; margin-top: -8px; margin-bottom: 18px; text-align: center; }
+  #preview img { max-width: 100%; max-height: 150px; border-radius: 8px; border: 1px solid #30363d; }
+  #preview p { font-size: .78rem; color: #8b949e; margin-top: 5px; }
   #status {
-    margin-top: 20px;
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: .9rem;
-    display: none;
+    margin-top: 20px; padding: 12px 16px;
+    border-radius: 8px; font-size: .9rem; display: none;
   }
   #status.success { background: #0f2d1a; border: 1px solid #238636; color: #3fb950; }
   #status.error   { background: #2d0f0f; border: 1px solid #da3633; color: #f85149; }
   #status.loading { background: #0d1f36; border: 1px solid #1f6feb; color: #58a6ff; }
-
   .link-box {
-    background: #0d1117;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: .8rem;
-    color: #58a6ff;
-    word-break: break-all;
-    margin-top: 10px;
-    cursor: pointer;
-    user-select: all;
+    background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+    padding: 8px 12px; font-size: .8rem; color: #58a6ff;
+    word-break: break-all; margin-top: 10px;
+    cursor: pointer; user-select: all;
   }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #58a6ff44;
+    border-top-color: #58a6ff; border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -130,24 +96,20 @@
   </div>
 
   <button id="uploadBtn" onclick="upload()">⬆️ Upload Banner</button>
-
   <div id="status"></div>
 </div>
 
 <script>
-const OWNER = "moatasemX99";
-const REPO  = "Users-Banners";
+const OWNER  = "moatasemX99";
+const REPO   = "Users-Banners";
 const BRANCH = "main";
+const WORKFLOW_FILE = "upload-banner.yml";
 
 function previewImage(url) {
   const p = document.getElementById("preview");
   const img = document.getElementById("previewImg");
-  if (url.startsWith("http")) {
-    img.src = url;
-    p.style.display = "block";
-  } else {
-    p.style.display = "none";
-  }
+  if (url.startsWith("http")) { img.src = url; p.style.display = "block"; }
+  else p.style.display = "none";
 }
 
 function setStatus(msg, type, extra = "") {
@@ -157,87 +119,71 @@ function setStatus(msg, type, extra = "") {
   el.innerHTML = msg + (extra ? `<div class="link-box" title="Click to copy" onclick="navigator.clipboard.writeText(this.innerText)">${extra}</div>` : "");
 }
 
-async function urlToBase64(url) {
-  const proxies = [
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://proxy.cors.sh/${url}`,
-  ];
-
-  for (const proxy of proxies) {
-    try {
-      const res = await fetch(proxy);
-      if (!res.ok) continue;
-      const buf = await res.arrayBuffer();
-      if (buf.byteLength === 0) continue;
-      const bytes = new Uint8Array(buf);
-      let bin = "";
-      for (let b of bytes) bin += String.fromCharCode(b);
-      return btoa(bin);
-    } catch (_) { continue; }
+// تشغيل الـ workflow عبر GitHub API
+async function triggerWorkflow(token, userId, imageUrl) {
+  const res = await fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `token ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        ref: BRANCH,
+        inputs: { user_id: userId, image_url: imageUrl }
+      })
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to trigger workflow");
   }
-
-  throw new Error("Failed to fetch image — تأكد أن الرابط صحيح أو جرب رابطاً آخر");
 }
 
-async function getFileSHA(path, token) {
-  const res = await fetch(
-    `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`,
-    { headers: { Authorization: `token ${token}` } }
-  );
-  if (res.status === 404) return null;
-  const data = await res.json();
-  return data.sha || null;
+// انتظار انتهاء الـ workflow
+async function waitForWorkflow(token, userId) {
+  await new Promise(r => setTimeout(r, 4000)); // انتظر بداية التشغيل
+
+  for (let i = 0; i < 24; i++) { // max ~2 دقيقة
+    const res = await fetch(
+      `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=1&branch=${BRANCH}`,
+      { headers: { Authorization: `token ${token}` } }
+    );
+    const data = await res.json();
+    const run = data.workflow_runs?.[0];
+    if (!run) { await new Promise(r => setTimeout(r, 5000)); continue; }
+
+    if (run.status === "completed") {
+      if (run.conclusion === "success") return true;
+      throw new Error("Workflow failed — check Actions tab for details");
+    }
+    setStatus(`<span class="spinner"></span> Processing... (${run.status})`, "loading");
+    await new Promise(r => setTimeout(r, 5000));
+  }
+  throw new Error("Timeout — check Actions tab manually");
 }
 
 async function upload() {
-  const token   = document.getElementById("token").value.trim();
-  const userId  = document.getElementById("userId").value.trim();
-  const imgUrl  = document.getElementById("imageUrl").value.trim();
-  const btn     = document.getElementById("uploadBtn");
+  const token  = document.getElementById("token").value.trim();
+  const userId = document.getElementById("userId").value.trim();
+  const imgUrl = document.getElementById("imageUrl").value.trim();
+  const btn    = document.getElementById("uploadBtn");
 
   if (!token || !userId || !imgUrl) {
     setStatus("⚠️ Please fill all fields.", "error"); return;
   }
 
   btn.disabled = true;
-  setStatus("⏳ Fetching image...", "loading");
+  setStatus(`<span class="spinner"></span> Triggering workflow...`, "loading");
 
   try {
-    const base64 = await urlToBase64(imgUrl);
+    await triggerWorkflow(token, userId, imgUrl);
+    setStatus(`<span class="spinner"></span> Workflow started, waiting...`, "loading");
+    await waitForWorkflow(token, userId);
 
-    setStatus("⏳ Uploading to GitHub...", "loading");
-
-    const path = `${userId}.png`;
-    const sha  = await getFileSHA(path, token);
-
-    const body = {
-      message: `Upload banner for user ${userId}`,
-      content: base64,
-      branch: BRANCH,
-      ...(sha && { sha })
-    };
-
-    const res = await fetch(
-      `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `token ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || "GitHub API error");
-    }
-
-    const rawUrl = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${path}`;
-    setStatus("✅ Banner uploaded successfully! Your link:", "success", rawUrl);
-
+    const rawUrl = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${userId}.png`;
+    setStatus("✅ Banner uploaded! Your link (click to copy):", "success", rawUrl);
   } catch (e) {
     setStatus("❌ Error: " + e.message, "error");
   } finally {
