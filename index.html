@@ -77,7 +77,7 @@
 </head>
 <body>
 <div class="card">
-  <h1>🖼️ Banner Uploader</h1>
+  <h1>Banner Uploader</h1>
   <p class="sub">Upload your banner directly to the repository</p>
 
   <label>GitHub Token (repo scope)</label>
@@ -95,7 +95,7 @@
     <p>Preview</p>
   </div>
 
-  <button id="uploadBtn" onclick="upload()">⬆️ Upload Banner</button>
+  <button id="uploadBtn" onclick="upload()">Upload Banner</button>
   <div id="status"></div>
 </div>
 
@@ -119,7 +119,6 @@ function setStatus(msg, type, extra = "") {
   el.innerHTML = msg + (extra ? `<div class="link-box" title="Click to copy" onclick="navigator.clipboard.writeText(this.innerText)">${extra}</div>` : "");
 }
 
-// تشغيل الـ workflow عبر GitHub API
 async function triggerWorkflow(token, userId, imageUrl) {
   const res = await fetch(
     `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
@@ -141,12 +140,11 @@ async function triggerWorkflow(token, userId, imageUrl) {
   }
 }
 
-// انتظار انتهاء الـ workflow
 async function waitForWorkflow(token, userId) {
-  await new Promise(r => setTimeout(r, 4000)); // انتظر بداية التشغيل
+  await new Promise(r => setTimeout(r, 4000)); 
 
-  for (let i = 0; i < 24; i++) { // max ~2 دقيقة
-    const res = await fetch(
+  for (let i = 0; i < 24; i++) { 
+   const res = await fetch(
       `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=1&branch=${BRANCH}`,
       { headers: { Authorization: `token ${token}` } }
     );
