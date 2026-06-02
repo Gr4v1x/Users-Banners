@@ -6,10 +6,11 @@ on:
       user_id:
         description: 'Player ID'
         required: true
-      image_url:
+        default: '1482160526657196223'
+      image_url: 
         description: 'Image URL (Copy image address)'
         required: true
-
+        default: 'https://media.discordapp.net/attachments/1492498485751189564/1504593564800385205/Untitled-1.png?ex=6a1ff133&is=6a1e9fb3&hm=b16a07b34e750131e0e03afa6e24a1d80442fcfde1e058bfc92a5504e6308846&=&format=webp&quality=lossless&width=508&height=90'
 jobs:
   upload:
     runs-on: ubuntu-latest
