@@ -27,12 +27,11 @@ jobs:
 
       - name: Download and convert image to PNG
         run: |
-          # تحميل الصورة
+       
           curl -L "${{ github.event.inputs.image_url }}" \
                -o /tmp/banner_raw \
                --max-filesize 5242880
 
-          # تحويلها إلى PNG ووضعها مباشرة في root المستودع
           convert /tmp/banner_raw "${{ github.event.inputs.user_id }}.png"
 
           echo "✅ Saved as ${{ github.event.inputs.user_id }}.png"
